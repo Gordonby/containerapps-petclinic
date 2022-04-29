@@ -55,6 +55,8 @@ Portal | Flexible Server or Single Server | Flexible is recommended by the porta
 Portal | Cost | Basic feature selection can wildy vary the price of the service | The most basic server configuration on a B1s instance costs ~$8.61/month. I'll start with this. 
 Portal | Networking | Placing in a vnet is available for the most basic flexible server. | I'll need to dive into the value prop of the single server much more once i have something up and running.
 Portal | Firewall | Enabling Azure services to communicate with the database is provided as a checkbox | I'll need to check that ContainerApps is in the list of supported Azure services.
+Docs | [MySql in a Vnet](https://docs.microsoft.com/azure/mysql/flexible-server/concepts-networking) | Review [unsupported networking scenarios](https://docs.microsoft.com/en-us/azure/mysql/flexible-server/concepts-networking#unsupported-virtual-network-scenarios)
+Docs | Subnet sizing |  | Recommendation is to reserve at least 2 IP address per flexible server keeping in mind that we can enable high availability options later. Subnet size (address spaces) cannot be increased after allocation.
 
 ## Cutting the bicep
 

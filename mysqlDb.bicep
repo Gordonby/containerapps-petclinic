@@ -62,10 +62,10 @@ param subnetName string = 'azure_mysql_subnet'
 param virtualNetworkRuleName string = 'AllowSubnet'
 
 @description('Virtual Network Address Prefix')
-param vnetAddressPrefix string = '10.0.0.0/16'
+param vnetAddressPrefix string = '10.0.0.0/24'
 
 @description('Subnet Address Prefix')
-param subnetPrefix string = '10.0.0.0/16'
+param subnetPrefix string = '10.0.0.0/27'
 
 var firewallrules = [
   {
