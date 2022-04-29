@@ -65,7 +65,7 @@ param virtualNetworkRuleName string = 'AllowSubnet'
 param vnetAddressPrefix string = '10.0.0.0/24'
 
 @description('Subnet Address Prefix')
-param subnetPrefix string = '10.0.0.0/27'
+param subnetPrefix string = '10.0.0.0/28'
 
 var firewallrules = [
   {
