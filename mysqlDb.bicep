@@ -18,9 +18,8 @@ param administratorLoginPassword string
 @description('Azure database for MySQL sku name ')
 param skuName string = 'Standard_B1s'
 
-// @description('Azure database for MySQL Sku Size ')
-// param SkuSizeMB int = 5120
 @minValue(20)
+@description('Azure database for MySQL Sku Size ')
 param StorageSizeGB int = 20
 
 @minValue(360)
@@ -123,6 +122,33 @@ resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
           ipv4Address: '10.0.0.4' //TODO: Work this out via subnetPrefix
         }
       ]
+    }
+  }
+  
+  resource dnsSoa 'SOA' = {
+    name: '@'
+    properties: {
+      ttl: 3600
+      soaRecord: {
+        email: 'azureprivatedns-host.microsoft.com'
+        expireTime: 2419200
+        host: 'azureprivatedns.net'
+        minimumTtl: 10
+        refreshTime: 3600
+        retryTime: 300
+        serialNumber: 1
+      }
+    }
+  }
+  
+  resource vnetLink 'virtualNetworkLinks@2020-06-01' = {
+    name: 'randomcharseh'
+    location: 'global'
+    properties: {
+      registrationEnabled: false
+      virtualNetwork: {
+        id: vnet.id
+      }
     }
   }
 }
