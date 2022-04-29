@@ -1,6 +1,7 @@
 @description('Server Name for Azure database for MySQL')
 param serverName string
 
+@description('Name for DNS Private Zone for MySQL Server')
 param dnsZoneName string = '${serverName}.private.mysql.database.azure.com'
 
 @description('Database administrator login name')

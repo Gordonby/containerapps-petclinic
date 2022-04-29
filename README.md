@@ -57,7 +57,7 @@ Portal | Networking | Placing in a vnet is available for the most basic flexible
 Portal | Firewall | Enabling Azure services to communicate with the database is provided as a checkbox | I'll need to check that ContainerApps is in the list of supported Azure services.
 Docs | [MySql in a Vnet](https://docs.microsoft.com/azure/mysql/flexible-server/concepts-networking) | Review [unsupported networking scenarios](https://docs.microsoft.com/en-us/azure/mysql/flexible-server/concepts-networking#unsupported-virtual-network-scenarios) | Subnet size (address spaces) cannot be increased after allocation.
 Docs | Subnet sizing | A /28 feels like a good default | Recommendation is to reserve at least 2 IP address per flexible server keeping in mind that we can enable high availability options later. 
-
+Docs | Private Access | Flexible Server integrates with Azure Private DNS zones to provide a reliable, secure DNS service | I'm going to need to deploy private dns with the service
 ## Cutting the bicep
 
 Checking the CARML IaC library shows that this is not a service that's been added yet.
