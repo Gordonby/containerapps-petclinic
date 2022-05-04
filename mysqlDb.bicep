@@ -1,8 +1,11 @@
 @description('Server Name for Azure database for MySQL')
 param serverName string
 
-@description('Name for DNS Private Zone for MySQL Server')
-param dnsZoneName string = '${serverName}.private.mysql.database.azure.com'
+@description('Name for DNS Private Zone')
+param dnsZoneName string 
+
+@description('Fully Qualified DNS Private Zone')
+param dnsZoneFqdn string = '${dnsZoneName}.private.mysql.database.azure.com'
 
 @description('Database administrator login name')
 @minLength(1)
@@ -13,17 +16,13 @@ param administratorLogin string
 @secure()
 param administratorLoginPassword string
 
-// @description('Azure database for MySQL compute capacity in vCores (2,4,8,16,32)')
-// param skuCapacity int = 2
-
 @description('Azure database for MySQL sku name ')
 param skuName string = 'Standard_B1s'
 
-@minValue(20)
-@description('Azure database for MySQL Sku Size ')
+@description('Azure database for MySQL storage Size ')
 param StorageSizeGB int = 20
 
-@minValue(360)
+@description('Azure database for MySQL storage Iops')
 param StorageIops int = 360
 
 @description('Azure database for MySQL pricing tier')
@@ -33,9 +32,6 @@ param StorageIops int = 360
   'Burstable'
 ])
 param SkuTier string = 'Burstable'
-
-// @description('Azure database for MySQL sku family')
-// param skuFamily string = 'Gen5'
 
 @description('MySQL version')
 @allowed([
@@ -59,27 +55,14 @@ param virtualNetworkName string = 'azure_mysql_vnet'
 @description('Subnet Name')
 param subnetName string = 'azure_mysql_subnet'
 
-@description('Virtual Network RuleName')
-param virtualNetworkRuleName string = 'AllowSubnet'
-
 @description('Virtual Network Address Prefix')
 param vnetAddressPrefix string = '10.0.0.0/24'
 
 @description('Subnet Address Prefix')
-param subnetPrefix string = '10.0.0.0/28'
+param mySqlSubnetPrefix string = '10.0.0.0/28'
 
-var firewallrules = [
-  {
-    Name: 'rule1'
-    StartIpAddress: '0.0.0.0'
-    EndIpAddress: '255.255.255.255'
-  }
-  {
-    Name: 'rule2'
-    StartIpAddress: '0.0.0.0'
-    EndIpAddress: '255.255.255.255'
-  }
-]
+@description('First available IP address in the MySql delegated subnet address')
+param mySqlServerIp string = '10.0.0.4'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   name: virtualNetworkName
@@ -95,7 +78,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   resource subnet 'subnets@2021-05-01' = {
     name: subnetName
     properties: {
-      addressPrefix: subnetPrefix
+      addressPrefix: mySqlSubnetPrefix
       delegations: [
         {
           name: 'dlg-Microsoft.DBforMySQL-flexibleServers'
@@ -111,7 +94,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
 }
 
 resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: dnsZoneName
+  name: dnsZoneFqdn
   location: 'global'
   
   resource dnsDbName 'A' = {
@@ -120,7 +103,7 @@ resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
       ttl: 30
       aRecords: [
         {
-          ipv4Address: '10.0.0.4' //TODO: Work this out via subnetPrefix
+          ipv4Address: mySqlServerIp
         }
       ]
     }
@@ -141,18 +124,21 @@ resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
       }
     }
   }
-  
-  resource vnetLink 'virtualNetworkLinks@2020-06-01' = {
-    name: 'randomcharseh'
-    location: 'global'
-    properties: {
-      registrationEnabled: false
-      virtualNetwork: {
-        id: vnet.id
-      }
+}
+
+resource vnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  name: vnet.name
+  parent: dnszone
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: vnet.id
     }
   }
 }
+
+var mysqlSubnetId =  '${vnetLink.properties.virtualNetwork.id}/subnets/${subnetName}'
 
 resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   name: serverName
@@ -178,13 +164,12 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
     highAvailability: {
       mode: 'Disabled'
     }
-  }
-
-  resource virtualNetworkRule 'firewallRules@2021-05-01' = [for rule in firewallrules: {
-    name: rule.Name
-    properties: {
-      startIpAddress: rule.StartIpAddress
-      endIpAddress: rule.EndIpAddress
+    network: {
+      delegatedSubnetResourceId: mysqlSubnetId
+      privateDnsZoneResourceId: dnszone.id
     }
-  }]
+  }
 }
+
+output mysqlSubnetId string = mysqlSubnetId
+output vnetId string = vnet.id

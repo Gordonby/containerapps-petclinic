@@ -1,103 +1,58 @@
-@description('Specifies the name of the container app.')
-param containerAppName string = 'containerapp-${uniqueString(resourceGroup().id)}'
+param nameseed string = 'petclinic'
 
-@description('Specifies the name of the container app environment.')
-param containerAppEnvName string = 'containerapp-env-${uniqueString(resourceGroup().id)}'
+param location string = resourceGroup().location
 
-@description('Specifies the name of the log analytics workspace.')
-param containerAppLogAnalyticsName string = 'containerapp-log-${uniqueString(resourceGroup().id)}'
+param mySqlServerName string = 'mysqlpetclinic'
 
-@description('Specifies the location for all resources.')
-@allowed([
-  'northcentralusstage'
-  'eastus'
-  'northeurope'
-  'canadacentral'
-])
-param location string //cannot use resourceGroup().location since it's not available in most of regions
+param mySqlServerAdminLoginName string = 'leadmin'
 
-@description('Specifies the docker container image to deploy.')
-param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+@secure()
+@minLength(8)
+param mySqlServerAdminPassword string = newGuid()
 
-@description('Specifies the container port.')
-param targetPort int = 80
+var rgUniqueString= uniqueString(resourceGroup().id, nameseed)
 
-@description('Number of CPU cores the container can use. Can be with a maximum of two decimals.')
-param cpuCore string = '0.5'
+var rawKvName = 'kv-${nameseed}-${rgUniqueString}'
+var kvName = length(rawKvName) > 24 ? substring(rawKvName,0,24) : rawKvName
 
-@description('Amount of memory (in gibibytes, GiB) allocated to the container up to 4GiB. Can be with a maximum of two decimals. Ratio with CPU cores must be equal to 2.')
-param memorySize string = '1'
-
-@description('Minimum number of replicas that will be deployed')
-@minValue(0)
-@maxValue(25)
-param minReplicas int = 1
-
-@description('Maximum number of replicas that will be deployed')
-@minValue(0)
-@maxValue(25)
-param maxReplicas int = 3
-
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2020-10-01' = {
-  name: containerAppLogAnalyticsName
+resource kv 'Microsoft.KeyVault/vaults@2021-11-01-preview' = {
+  name: kvName
   location: location
   properties: {
     sku: {
-      name: 'PerGB2018'
+      family: 'A'
+      name: 'standard'
     }
+    accessPolicies: []
+    enableRbacAuthorization: true
+    tenantId: subscription().tenantId
+    enableSoftDelete: false
   }
 }
 
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-01-01-preview' = {
-  name: containerAppEnvName
-  location: location
+@description('KeyVault is being leveraged for persistance of the MySql admin password')
+resource adminSecret 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+  name: 'mysqladminpw'
+  parent: kv
   properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
-      }
-    }
+    value: mySqlServerAdminPassword
   }
 }
 
-resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
-  name: containerAppName
-  location: location
-  properties: {
-    managedEnvironmentId: containerAppEnv.id
-    configuration: {
-      ingress: {
-        external: true
-        targetPort: targetPort
-        allowInsecure: false
-        traffic: [
-          {
-            latestRevision: true
-            weight: 100
-          }
-        ]
-      }
-    }
-    template: {
-      revisionSuffix: 'firstrevision'
-      containers: [
-        {
-          name: containerAppName
-          image: containerImage
-          resources: {
-            cpu: json(cpuCore)
-            memory: '${memorySize}Gi'
-          }
-        }
-      ]
-      scale: {
-        minReplicas: minReplicas
-        maxReplicas: maxReplicas
-      }
-    }
+module mysql 'mysqlDb.bicep' = {
+  name: 'mysqlDb'
+  params: {
+    location: location
+    serverName: mySqlServerName
+    administratorLogin: mySqlServerAdminLoginName
+    administratorLoginPassword: mySqlServerAdminPassword
+    dnsZoneName: nameseed
   }
 }
 
-output containerAppFQDN string = containerApp.properties.configuration.ingress.fqdn
+// module app 'petClinicApp.bicep' = {
+//   name: 'containerApp'
+//   params: {
+//     location: location
+//   }
+// }
