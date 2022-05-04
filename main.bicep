@@ -2,7 +2,7 @@ param nameseed string = 'petclinic'
 
 param location string = resourceGroup().location
 
-param mySqlServerName string = 'mysqlpetclinic'
+param mySqlServerName string = 'petclinic'
 
 param mySqlServerAdminLoginName string = 'leadmin'
 
@@ -39,24 +39,37 @@ resource adminSecret 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
   }
 }
 
-module mysql 'mysqlDb.bicep' = {
-  name: 'mysqlDb'
+module vnet 'vnetdns.bicep' = {
+  name: 'vnet-dns'
   params: {
     location: location
-    serverName: mySqlServerName
-    administratorLogin: mySqlServerAdminLoginName
-    administratorLoginPassword: mySqlServerAdminPassword
     dnsZoneName: nameseed
+    virtualNetworkName: 'vnet-${nameseed}'
   }
 }
-var mysqlConnectionstring = mysql.outputs.mysqlHostname
-var jdbcDatasourceUrl = mysqlConnectionstring
+
+// module mysql 'mysqlDb.bicep' = {
+//   name: 'mysqlDb'
+//   params: {
+//     location: location
+//     serverName: mySqlServerName
+//     administratorLogin: mySqlServerAdminLoginName
+//     administratorLoginPassword: mySqlServerAdminPassword
+//     dnsZoneFqdn: vnet.outputs.privateDnsName
+//     mySqlServerIp: '10.0.0.4' //First usable IP from the subnet
+//     mysqlSubnetId: vnet.outputs.mysqlSubnetId
+//   }
+// }
+// var mysqlConnectionstring = mysql.outputs.mysqlHostname
+var jdbcDatasourceUrl = ''
 
 module containerAppEnv 'containerAppEnv.bicep' = {
   name: 'containerAppEnv'
   params: {
     location: location
-    containerAppEnvName: 'petclinic'
+    containerAppEnvName: nameseed
+    infraSubnetId: vnet.outputs.cappEnvCtrlSubnetId
+    runtimeSubnetId: vnet.outputs.cappEnvAppsSubnetId
   }
 }
 
@@ -65,7 +78,7 @@ module apigw 'containerApp.bicep' = {
   params: {
     location: location
     containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
-    containerAppName: 'apigw'
+    containerAppName: '${nameseed}-apigw'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-api-gateway:latest'
     externalIngress: true
   }
@@ -76,7 +89,7 @@ module visits 'containerApp.bicep' = {
   params: {
     location: location
     containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
-    containerAppName: 'visits'
+    containerAppName: '${nameseed}-visits'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-visits-service:latest'
     externalIngress: false
     environmentVariables: [
@@ -84,10 +97,10 @@ module visits 'containerApp.bicep' = {
         name : 'SPRING_DATASOURCE_URL'
         value : jdbcDatasourceUrl
       }
-      {
-        name : 'SPRING_DATASOURCE_URL'
-        value : jdbcDatasourceUrl
-      }
+      // {
+      //   name : 'SPRING_DATASOURCE_URL'
+      //   value : jdbcDatasourceUrl
+      // }
     ]
   }
 }
@@ -97,7 +110,7 @@ module vets 'containerApp.bicep' = {
   params: {
     location: location
     containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
-    containerAppName: 'vets'
+    containerAppName: '${nameseed}-vets'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-vets-service:latest'
     externalIngress: false
   }
@@ -108,7 +121,7 @@ module customers 'containerApp.bicep' = {
   params: {
     location: location
     containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
-    containerAppName: 'customers'
+    containerAppName: '${nameseed}-customers'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-customers-service:latest'
     externalIngress: false
   }

@@ -1,11 +1,8 @@
 @description('Server Name for Azure database for MySQL')
 param serverName string
 
-@description('Name for DNS Private Zone')
-param dnsZoneName string 
-
 @description('Fully Qualified DNS Private Zone')
-param dnsZoneFqdn string = '${dnsZoneName}.private.mysql.database.azure.com'
+param dnsZoneFqdn string
 
 @description('Database administrator login name')
 @minLength(1)
@@ -49,97 +46,12 @@ param backupRetentionDays int = 7
 @description('Geo-Redundant Backup setting')
 param geoRedundantBackup string = 'Disabled'
 
-@description('Virtual Network Name')
-param virtualNetworkName string = 'azure_mysql_vnet'
+@description('Subnet Id')
+param mysqlSubnetId string
 
-@description('Subnet Name')
-param subnetName string = 'azure_mysql_subnet'
-
-@description('Virtual Network Address Prefix')
-param vnetAddressPrefix string = '10.0.0.0/24'
-
-@description('Subnet Address Prefix')
-param mySqlSubnetPrefix string = '10.0.0.0/28'
-
-@description('First available IP address in the MySql delegated subnet address')
-param mySqlServerIp string = '10.0.0.4'
-
-resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
-  name: virtualNetworkName
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        vnetAddressPrefix
-      ]
-    }
-  }
-}
-
-resource mysqlSubnet 'Microsoft.Network/virtualNetworks/subnets@2021-05-01' = {
-  name: subnetName
-  parent: vnet
-  properties: {
-    addressPrefix: mySqlSubnetPrefix
-    delegations: [
-      {
-        name: 'dlg-Microsoft.DBforMySQL-flexibleServers'
-        properties: {
-          serviceName: 'Microsoft.DBforMySQL/flexibleServers'
-        }
-      }
-    ]
-    privateEndpointNetworkPolicies: 'Enabled'
-    privateLinkServiceNetworkPolicies: 'Enabled'
-  }
-}
-
-resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
   name: dnsZoneFqdn
-  location: 'global'
-  
-  resource dnsDbName 'A' = {
-    name: serverName
-    properties: {
-      ttl: 30
-      aRecords: [
-        {
-          ipv4Address: mySqlServerIp
-        }
-      ]
-    }
-  }
-  
-  resource dnsSoa 'SOA' = {
-    name: '@'
-    properties: {
-      ttl: 3600
-      soaRecord: {
-        email: 'azureprivatedns-host.microsoft.com'
-        expireTime: 2419200
-        host: 'azureprivatedns.net'
-        minimumTtl: 10
-        refreshTime: 3600
-        retryTime: 300
-        serialNumber: 1
-      }
-    }
-  }
 }
-
-resource vnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  name: vnet.name
-  parent: dnszone
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}
-
-var mysqlSubnetId =  '${vnetLink.properties.virtualNetwork.id}/subnets/${subnetName}'
 
 resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   name: serverName
@@ -156,7 +68,7 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
       iops: StorageIops
       storageSizeGB: StorageSizeGB
     }
-    //createMode: 'Default'
+    createMode: 'Default'
     maintenanceWindow: {
       customWindow: 'Disabled'
       dayOfWeek: 0
@@ -179,6 +91,4 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
   }
 }
 
-output mysqlSubnetId string = mysqlSubnetId
-output vnetId string = vnet.id
 output mysqlHostname string = '${serverName}.${dnszone.name}'
