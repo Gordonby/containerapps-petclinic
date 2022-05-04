@@ -57,8 +57,8 @@ module mysql 'mysqlDb.bicep' = {
     mysqlSubnetId: vnet.outputs.mysqlSubnetId
   }
 }
-var mysqlConnectionstring = mysql.outputs.mysqlHostname
-var jdbcDatasourceUrl = mysqlConnectionstring
+
+var jdbcDatasourceUrl = 'jdbc:mysql://${mysql.outputs.mysqlHostname}:3306/service_instance_db?queryInterceptors=brave.mysql8.TracingQueryInterceptor&exceptionInterceptors=brave.mysql8.TracingExceptionInterceptor'
 
 module containerAppEnv 'containerAppEnv.bicep' = {
   name: 'containerAppEnv'
@@ -78,6 +78,12 @@ module apigw 'containerApp.bicep' = {
     containerAppName: '${nameseed}-apigw'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-api-gateway:latest'
     externalIngress: true
+    environmentVariables: [
+      {
+        name : 'SPRING_PROFILES_ACTIVE'
+        value : 'kubernetes'
+      }
+    ]
   }
 }
 
@@ -91,13 +97,21 @@ module visits 'containerApp.bicep' = {
     externalIngress: false
     environmentVariables: [
       {
-        name : 'SPRING_DATASOURCE_URL'
-        value : jdbcDatasourceUrl
+        name : 'SPRING_PROFILES_ACTIVE'
+        value : 'kubernetes'
       }
-      // {
-      //   name : 'SPRING_DATASOURCE_URL'
-      //   value : jdbcDatasourceUrl
-      // }
+      {
+        name : 'SPRING_DATASOURCE_URL'
+        value : '${jdbcDatasourceUrl}&zipkinServiceName=visits-db'
+      }
+      {
+        name : 'SPRING_DATASOURCE_USERNAME'
+        value : mySqlServerAdminLoginName
+      }
+      {
+        name : 'SPRING_DATASOURCE_PASSWORD'
+        value : mySqlServerAdminPassword
+      }
     ]
   }
 }
@@ -110,6 +124,24 @@ module vets 'containerApp.bicep' = {
     containerAppName: '${nameseed}-vets'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-vets-service:latest'
     externalIngress: false
+    environmentVariables: [
+      {
+        name : 'SPRING_PROFILES_ACTIVE'
+        value : 'kubernetes'
+      }
+      {
+        name : 'SPRING_DATASOURCE_URL'
+        value : '${jdbcDatasourceUrl}&zipkinServiceName=vets-db'
+      }
+      {
+        name : 'SPRING_DATASOURCE_USERNAME'
+        value : mySqlServerAdminLoginName
+      }
+      {
+        name : 'SPRING_DATASOURCE_PASSWORD'
+        value : mySqlServerAdminPassword
+      }
+    ]
   }
 }
 
@@ -121,5 +153,23 @@ module customers 'containerApp.bicep' = {
     containerAppName: '${nameseed}-customers'
     containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-customers-service:latest'
     externalIngress: false
+    environmentVariables: [
+      {
+        name : 'SPRING_PROFILES_ACTIVE'
+        value : 'kubernetes'
+      }
+      {
+        name : 'SPRING_DATASOURCE_URL'
+        value : '${jdbcDatasourceUrl}&zipkinServiceName=customers-db'
+      }
+      {
+        name : 'SPRING_DATASOURCE_USERNAME'
+        value : mySqlServerAdminLoginName
+      }
+      {
+        name : 'SPRING_DATASOURCE_PASSWORD'
+        value : mySqlServerAdminPassword
+      }
+    ]
   }
 }
