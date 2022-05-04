@@ -74,22 +74,23 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
       ]
     }
   }
+}
 
-  resource subnet 'subnets@2021-05-01' = {
-    name: subnetName
-    properties: {
-      addressPrefix: mySqlSubnetPrefix
-      delegations: [
-        {
-          name: 'dlg-Microsoft.DBforMySQL-flexibleServers'
-          properties: {
-            serviceName: 'Microsoft.DBforMySQL/flexibleServers'
-          }
+resource mysqlSubnet 'Microsoft.Network/virtualNetworks/subnets@2021-05-01' = {
+  name: subnetName
+  parent: vnet
+  properties: {
+    addressPrefix: mySqlSubnetPrefix
+    delegations: [
+      {
+        name: 'dlg-Microsoft.DBforMySQL-flexibleServers'
+        properties: {
+          serviceName: 'Microsoft.DBforMySQL/flexibleServers'
         }
-      ]
-      privateEndpointNetworkPolicies: 'Enabled'
-      privateLinkServiceNetworkPolicies: 'Enabled'
-    }
+      }
+    ]
+    privateEndpointNetworkPolicies: 'Enabled'
+    privateLinkServiceNetworkPolicies: 'Enabled'
   }
 }
 
@@ -155,7 +156,14 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
       iops: StorageIops
       storageSizeGB: StorageSizeGB
     }
-    createMode: 'Default'
+    //createMode: 'Default'
+    maintenanceWindow: {
+      customWindow: 'Disabled'
+      dayOfWeek: 0
+      startHour: 0
+      startMinute: 0
+    }
+    replicationRole: 'None'
     version: mysqlVersion
     backup: {
       backupRetentionDays: backupRetentionDays
@@ -173,3 +181,4 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
 
 output mysqlSubnetId string = mysqlSubnetId
 output vnetId string = vnet.id
+output mysqlHostname string = '${serverName}.${dnszone.name}'

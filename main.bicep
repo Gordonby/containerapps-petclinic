@@ -49,10 +49,67 @@ module mysql 'mysqlDb.bicep' = {
     dnsZoneName: nameseed
   }
 }
+var mysqlConnectionstring = mysql.outputs.mysqlHostname
+var jdbcDatasourceUrl = mysqlConnectionstring
 
-// module app 'petClinicApp.bicep' = {
-//   name: 'containerApp'
-//   params: {
-//     location: location
-//   }
-// }
+module containerAppEnv 'containerAppEnv.bicep' = {
+  name: 'containerAppEnv'
+  params: {
+    location: location
+    containerAppEnvName: 'petclinic'
+  }
+}
+
+module apigw 'containerApp.bicep' = {
+  name: 'app-apigw'
+  params: {
+    location: location
+    containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
+    containerAppName: 'apigw'
+    containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-api-gateway:latest'
+    externalIngress: true
+  }
+}
+
+module visits 'containerApp.bicep' = {
+  name: 'app-visits'
+  params: {
+    location: location
+    containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
+    containerAppName: 'visits'
+    containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-visits-service:latest'
+    externalIngress: false
+    environmentVariables: [
+      {
+        name : 'SPRING_DATASOURCE_URL'
+        value : jdbcDatasourceUrl
+      }
+      {
+        name : 'SPRING_DATASOURCE_URL'
+        value : jdbcDatasourceUrl
+      }
+    ]
+  }
+}
+
+module vets 'containerApp.bicep' = {
+  name: 'app-vets'
+  params: {
+    location: location
+    containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
+    containerAppName: 'vets'
+    containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-vets-service:latest'
+    externalIngress: false
+  }
+}
+
+module customers 'containerApp.bicep' = {
+  name: 'app-customers'
+  params: {
+    location: location
+    containerAppEnvName: containerAppEnv.outputs.containerAppEnvironmentName
+    containerAppName: 'customers'
+    containerImage: 'docker.io/springcommunity/spring-petclinic-cloud-customers-service:latest'
+    externalIngress: false
+  }
+}

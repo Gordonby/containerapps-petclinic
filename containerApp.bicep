@@ -2,10 +2,7 @@
 param containerAppName string = 'containerapp-${uniqueString(resourceGroup().id)}'
 
 @description('Specifies the name of the container app environment.')
-param containerAppEnvName string = 'containerapp-env-${uniqueString(resourceGroup().id)}'
-
-@description('Specifies the name of the log analytics workspace.')
-param containerAppLogAnalyticsName string = 'containerapp-log-${uniqueString(resourceGroup().id)}'
+param containerAppEnvName string
 
 @description('Specifies the location for all resources.')
 @allowed([
@@ -16,8 +13,8 @@ param containerAppLogAnalyticsName string = 'containerapp-log-${uniqueString(res
 ])
 param location string //cannot use resourceGroup().location since it's not available in most of regions
 
-@description('Specifies the docker container image to deploy for the frontend API gateway.')
-param apigContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+@description('Specifies the docker container image to deploy.')
+param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 @description('Specifies the container port.')
 param targetPort int = 80
@@ -38,38 +35,25 @@ param minReplicas int = 1
 @maxValue(25)
 param maxReplicas int = 3
 
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2020-10-01' = {
-  name: containerAppLogAnalyticsName
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-  }
-}
+@description('Should the app be exposed on an external endpoint')
+param externalIngress bool = true
 
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-01-01-preview' = {
+param revisionSuffix string = uniqueString(utcNow())
+
+param environmentVariables array = []
+
+resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-01-01-preview' existing = {
   name: containerAppEnvName
-  location: location
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
-      }
-    }
-  }
 }
 
-resource apiGateway 'Microsoft.App/containerApps@2022-01-01-preview' = {
+resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
   name: containerAppName
   location: location
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
       ingress: {
-        external: true
+        external: externalIngress
         targetPort: targetPort
         allowInsecure: false
         traffic: [
@@ -81,15 +65,16 @@ resource apiGateway 'Microsoft.App/containerApps@2022-01-01-preview' = {
       }
     }
     template: {
-      revisionSuffix: 'firstrevision'
+      revisionSuffix: revisionSuffix
       containers: [
         {
           name: containerAppName
-          image: apigContainerImage
+          image: containerImage
           resources: {
             cpu: json(cpuCore)
             memory: '${memorySize}Gi'
           }
+          env: environmentVariables
         }
       ]
       scale: {
@@ -100,4 +85,4 @@ resource apiGateway 'Microsoft.App/containerApps@2022-01-01-preview' = {
   }
 }
 
-output containerAppFQDN string = apiGateway.properties.configuration.ingress.fqdn
+output containerAppFQDN string = containerApp.properties.configuration.ingress.fqdn
