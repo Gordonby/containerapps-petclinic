@@ -1,5 +1,5 @@
 @description('Server Name for Azure database for MySQL')
-param serverName string
+param serverName string = 'mysql-${uniqueString(resourceGroup().id)}'
 
 @description('Fully Qualified DNS Private Zone')
 param dnsZoneFqdn string
@@ -46,7 +46,7 @@ param backupRetentionDays int = 7
 @description('Geo-Redundant Backup setting')
 param geoRedundantBackup string = 'Disabled'
 
-@description('Subnet Id')
+@description('MySql Subnet Id')
 param mysqlSubnetId string
 
 resource dnszone 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
@@ -69,13 +69,13 @@ resource mysqlDbServer 'Microsoft.DBforMySQL/flexibleServers@2021-05-01' = {
       storageSizeGB: StorageSizeGB
     }
     createMode: 'Default'
-    maintenanceWindow: {
-      customWindow: 'Disabled'
-      dayOfWeek: 0
-      startHour: 0
-      startMinute: 0
-    }
-    replicationRole: 'None'
+    // maintenanceWindow: {
+    //   customWindow: 'Disabled'
+    //   dayOfWeek: 0
+    //   startHour: 0
+    //   startMinute: 0
+    // }
+    // replicationRole: 'None'
     version: mysqlVersion
     backup: {
       backupRetentionDays: backupRetentionDays

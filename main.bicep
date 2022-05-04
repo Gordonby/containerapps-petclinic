@@ -2,7 +2,7 @@ param nameseed string = 'petclinic'
 
 param location string = resourceGroup().location
 
-param mySqlServerName string = 'petclinic'
+//param mySqlServerName string = ''
 
 param mySqlServerAdminLoginName string = 'leadmin'
 
@@ -11,7 +11,6 @@ param mySqlServerAdminLoginName string = 'leadmin'
 param mySqlServerAdminPassword string = newGuid()
 
 var rgUniqueString= uniqueString(resourceGroup().id, nameseed)
-
 var rawKvName = 'kv-${nameseed}-${rgUniqueString}'
 var kvName = length(rawKvName) > 24 ? substring(rawKvName,0,24) : rawKvName
 
@@ -48,20 +47,18 @@ module vnet 'vnetdns.bicep' = {
   }
 }
 
-// module mysql 'mysqlDb.bicep' = {
-//   name: 'mysqlDb'
-//   params: {
-//     location: location
-//     serverName: mySqlServerName
-//     administratorLogin: mySqlServerAdminLoginName
-//     administratorLoginPassword: mySqlServerAdminPassword
-//     dnsZoneFqdn: vnet.outputs.privateDnsName
-//     mySqlServerIp: '10.0.0.4' //First usable IP from the subnet
-//     mysqlSubnetId: vnet.outputs.mysqlSubnetId
-//   }
-// }
-// var mysqlConnectionstring = mysql.outputs.mysqlHostname
-var jdbcDatasourceUrl = ''
+module mysql 'mysqlDb.bicep' = {
+  name: 'mysqlDb'
+  params: {
+    location: location
+    administratorLogin: mySqlServerAdminLoginName
+    administratorLoginPassword: mySqlServerAdminPassword
+    dnsZoneFqdn: vnet.outputs.privateDnsName
+    mysqlSubnetId: vnet.outputs.mysqlSubnetId
+  }
+}
+var mysqlConnectionstring = mysql.outputs.mysqlHostname
+var jdbcDatasourceUrl = mysqlConnectionstring
 
 module containerAppEnv 'containerAppEnv.bicep' = {
   name: 'containerAppEnv'
